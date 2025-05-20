@@ -1,17 +1,21 @@
 #!/bin/bash
 
-helper()
-
-# GitHub API URL
+# GitHub API base URL
 API_URL="https://api.github.com"
 
-# GitHub username and personal access token
-USERNAME=$username
-TOKEN=$token
+# Check if required commands are available
+if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed. Please install it to run this script."
+    exit 1
+fi
 
-# User and Repository information
-REPO_OWNER=$1
-REPO_NAME=$2
+# Function to check if arguments are provided
+function helper {
+    if [ $# -ne 2 ]; then
+        echo "Usage: $0 <REPO_OWNER> <REPO_NAME>"
+        exit 1
+    fi
+}
 
 # Function to make a GET request to the GitHub API
 function github_api_get {
@@ -25,10 +29,10 @@ function github_api_get {
 # Function to list users with read access to the repository
 function list_users_with_read_access {
     local endpoint="repos/${REPO_OWNER}/${REPO_NAME}/collaborators"
-    # Fetch the list of collaborators on the repository
+    local collaborators
+
     collaborators="$(github_api_get "$endpoint" | jq -r '.[] | select(.permissions.pull == true) | .login')"
 
-    # Display the list of collaborators with read access
     if [[ -z "$collaborators" ]]; then
         echo "No users with read access found for ${REPO_OWNER}/${REPO_NAME}."
     else
@@ -37,15 +41,26 @@ function list_users_with_read_access {
     fi
 }
 
-function helper {
-    expected_cmd_agrs=2
-    if [ $# -ne $expected_cmd_agrs ]; then
-        echo "Please execute the script with required arguments."
-        exit 1
-    fi
-}
+# --- Main script ---
 
-# Main script
+# Check required arguments
+helper "$@"
+
+# User and Repository information
+REPO_OWNER="$1"
+REPO_NAME="$2"
+
+# GitHub username and personal access token (should be set as environment variables)
+USERNAME="${username}"
+TOKEN="${token}"
+
+# Validate credentials
+if [[ -z "$USERNAME" || -z "$TOKEN" ]]; then
+    echo "Error: GitHub username or token not set. Please export them as environment variables:"
+    echo "  export username=YOUR_GITHUB_USERNAME"
+    echo "  export token=YOUR_PERSONAL_ACCESS_TOKEN"
+    exit 1
+fi
 
 echo "Listing users with read access to ${REPO_OWNER}/${REPO_NAME}..."
 list_users_with_read_access
